@@ -1,0 +1,120 @@
+The instructions here are basically the same as the notebook but for a container
+
+1. create a folder for your project and cd into it
+2. clone corcua repo for datasets downloading and processing:
+    git clone https://gitlab.com/Jaco-Assistant/corcua.git
+3. clone the Scribosermo repo
+    https://gitlab.com/Jaco-Assistant/Scribosermo
+4. create directories for storing the dataset and models:
+    mkdir checkpoints
+    mkdir data_original
+    mkdir data_prepared
+
+Your folder structure should look like this now:
+
+project_folder
+    checkpoints
+    corcua
+    data_original
+    data_prepared
+    Scribosermo
+
+5. build the image:
+docker build -f Scribosermo/Containerfile -t scribosermo ./Scribosermo/
+and run the container:
+./Scribosermo/run_container.sh
+
+*Now inside the container do the following:*
+
+6. download the language model from https://www.mediafire.com/file/pzj8prgv2h0c8ue/kenlm_de_all.scorer/file
+7. Move it to its directory:
+mkdir /data_prepared/langmodel/
+mv /kenlm_de_all.scorer /data_prepared/langmodel/de.scorer
+
+8. download the pre-trained model from: https://www.mediafire.com/folder/jh5unptizgzou/d37cv-wer0066
+click on pb.zip and config_export.json
+9. extrct the model and move to its directory:
+mkdir -p /checkpoints/de/cvd37/
+mkdir -p /checkpoints/de/cvd37-2/
+
+unzip /pb.zip -d /checkpoints/de/cvd37/
+mv /checkpoints/de/cvd37/pb/* /checkpoints/de/cvd37/
+rm -r /checkpoints/de/cvd37/pb
+cp -r /checkpoints/de/cvd37/* /checkpoints/de/cvd37-2/
+
+10. the model can't be trained when loaded directly so we'll save its weights instead. Run this in Python:
+
+import tensorflow as tf
+
+
+with tf.device("CPU"):
+    model = tf.keras.models.load_model("/checkpoints/de/cvd37-2/")
+    model.save_weights("/checkpoints/de/cvd37-2/")
+    model.save_weights("/checkpoints/de/cvd37/")
+
+11. download a dataset using:
+
+from corcua import downloaders, readers, writers
+
+
+downloaders.voxforge.Downloader().download_dataset(path="/data_original/de/voxforge/", overwrite=True, args={"language": "de"})
+ds = readers.voxforge.Reader().load_dataset({"path": "/data_original/de/voxforge/"})
+writers.base_writer.Writer().save_dataset(ds, path="/data_prepared/de/voxforge/", sample_rate=16_000, overwrite=True)
+
+12. split it into train|dev|test splits:
+python3 /Scribosermo/preprocessing/split_dataset.py /data_prepared/de/voxforge/all.csv --split '80|10|10' --file_appendix _s
+
+13. clean the splits. remove very short, very long and quick samples
+
+python3 /Scribosermo/preprocessing/dataset_operations.py \
+"/data_prepared/de/voxforge/train_s.csv" \
+"/data_prepared/de/voxforge/train_clean.csv" --replace --exclude --clean
+
+python3 /Scribosermo/preprocessing/dataset_operations.py \
+"/data_prepared/de/voxforge/dev_s.csv" \
+"/data_prepared/de/voxforge/dev_clean.csv" --replace --exclude --clean
+
+# don't clean test
+python3 /Scribosermo/preprocessing/dataset_operations.py \
+"/data_prepared/de/voxforge/test_s.csv" \
+"/data_prepared/de/voxforge/test_clean.csv" --replace --exclude
+
+14. modify the config and save it:
+
+import json
+import yaml
+
+
+with open("/config_export.json", "r") as f:
+    config = json.load(f)
+
+config["data_paths"] = {
+    "eval": "/data_prepared/de/voxforge/dev_clean.csv",
+    "test": "/data_prepared/de/voxforge/test_clean.csv",
+    "train": "/data_prepared/de/voxforge/train_clean.csv"
+}
+config["scorer"]["path"] = "/data_prepared/langmodel/de.scorer"
+
+# you can change here the training settings. print(config) to see all the other settings
+config["batch_sizes"] = {
+    "train": 32,
+    "eval": 32,
+    "test": 1
+}
+config["optimizer"]["learning_rate"] = 1e-5
+config["training_epochs"] = 200
+config["freeze_base_net"] = False
+
+# save the config file
+with open("/config_export_modified.json", "w") as f:
+    json.dump(config, f)
+
+with open("/Scribosermo/training/config/train_config.yaml", "w") as f:
+    yaml.dump(config, f, default_flow_style=False)
+
+cp /config_export_modified.json /checkpoints/de/cvd37-2/config_export.json
+cp /config_export_modified.json /checkpoints/de/cvd37/config_export.json
+
+
+15. finally, to train, run the training script:
+python3 /Scribosermo/training/run_train.py
