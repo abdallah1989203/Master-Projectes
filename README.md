@@ -15,7 +15,7 @@ Dieses Projekt zielt darauf ab, die Genauigkeit der Spracherkennung in der deuts
 ## Masterarbeit: Objekterkennung und Tracking von Feldmäusen
 
 ### Zusammenfassung
-Die Masterarbeit konzentriert sich auf die Entwicklung von Computer Vision-Techniken zur Erkennung und Verfolgung von Feldmäusen in natürlicher Umgebung. Wir verwenden fortgeschrittene Bildverarbeitungsalgorithmen und maschinelles Lernen, um die Mäuse in Echtzeit zu identifizieren und ihre Bewegungen zu verfolgen. Dies ermöglicht die Erfassung wertvoller Daten für die Verhaltensforschung.
+Die Masterarbeit konzentriert sich auf die Entwicklung von Computer Vision-Techniken zur Erkennung und Verfolgung von Feldmäusen in natürlicher Umgebung. Wir verwenden fortgeschrittene Bildverarbeitungsalgorithmen und maschinelles Lernen, um die Fledermäuse in Echtzeit zu identifizieren und ihre Bewegungen zu verfolgen. Dies ermöglicht die Erfassung wertvoller Daten für die Verhaltensforschung.
 
 ### Schlüsselmerkmale
 - Objekterkennung in natürlicher Umgebung
